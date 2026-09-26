@@ -5,3 +5,11 @@
 
 node_modules/
 coverage/
+
+# Credenciales locales y archivos de Terraform generados
+.env
+.env.*
+!.env.example
+*.tfstate.*
+*.tfplan
+crash.log
