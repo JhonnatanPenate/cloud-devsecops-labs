@@ -16,3 +16,7 @@ crash.log
 
 # Lab 11: paquetes zip que genera Terraform para las Lambdas
 api-gateway/*.zip
+
+# Lab 18
+*.zip
+response.json
