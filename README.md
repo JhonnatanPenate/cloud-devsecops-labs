@@ -1,6 +1,6 @@
 # cloud-devsecops-labs
 
-> 18 progressive hands-on labs on AWS: a secure CI/CD pipeline, Infrastructure as Code, event-driven architecture, Kubernetes and FinOps, built on one evolving codebase.
+> 18 progressive labs on AWS: a secure CI/CD pipeline, Infrastructure as Code, event-driven architecture, Kubernetes and FinOps, built on one evolving codebase.
 
 ![AWS](https://img.shields.io/badge/AWS-232F3E?logo=amazonwebservices&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white)
@@ -20,6 +20,7 @@
 - [Labs](#labs)
 - [Technical highlights](#technical-highlights)
 - [Tech stack](#tech-stack)
+- [Repository layout](#repository-layout)
 - [Browse by lab](#browse-by-lab)
 - [Getting started](#getting-started)
 - [Cost & cleanup](#cost--cleanup)
@@ -46,58 +47,40 @@ The complete commit history is preserved with its original dates, and **every la
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Dev([Developer]) -->|push| GH[GitHub Actions<br/>CodeQL · Gitleaks · Trivy<br/>SBOM · SonarQube]
-    GH -->|terraform apply| S3[S3 static site]
+![Architecture overview](docs/architecture/overview.png)
 
-    Client([Client]) --> APIGW[API Gateway]
-    APIGW --> L[Lambda]
-    L --> SQS1[SQS]
-    App[Checkout app] -->|events| EB[EventBridge]
-    EB --> SQSi[SQS inventory]
-    EB --> SQSn[SQS notifications]
-    SQSi --> DDB[(DynamoDB<br/>CQRS read model)]
-    App --> SNS[SNS fan-out]
-    SNS --> Bill[SQS billing]
-    SNS --> Ship[SQS shipping]
-
-    App -. OpenTelemetry .-> CW[CloudWatch<br/>dashboards · alarms]
-    CW --> Alert[SNS alerts]
-
-    subgraph k8s [Kubernetes · kind]
-        Kafka[Kafka] --> Cons[Consumer]
-        API[status-api<br/>HPA · PDB · Ingress]
-    end
-
-    Sched[EventBridge<br/>daily schedule] --> Tag[Lambda<br/>tag compliance]
-    Tag --> SNSf[SNS report]
-    Budget[AWS Budgets] --> SNSf
-```
+Detailed diagrams by area:
+[DevSecOps pipeline](docs/architecture/01-devsecops-pipeline.md) ·
+[IaC & observability](docs/architecture/02-iac-multi-environment.md) ·
+[Event-driven](docs/architecture/03-event-driven.md) ·
+[Kubernetes](docs/architecture/04-kubernetes.md) ·
+[FinOps](docs/architecture/05-finops.md)
 
 ## Labs
 
-| # | Topic | Key services & tools | Tag |
-|---|---|---|---|
-| 01 | Repository setup and base checkout app | Node.js, Jest | [`lab-01`](../../tree/lab-01) |
-| 02 | Infrastructure as Code | Terraform, S3 static website | [`lab-02`](../../tree/lab-02) |
-| 03 | CI/CD deployment pipeline | GitHub Actions, Terraform | [`lab-03`](../../tree/lab-03) |
-| 04 | Security & quality gates | CodeQL, Gitleaks, Trivy, SBOM, SonarQube | [`lab-04`](../../tree/lab-04) |
-| 05 | Modular Terraform | Terraform modules (`static-site`) | [`lab-05`](../../tree/lab-05) |
-| 06 | Multi-environment + remote state | Workspaces, S3 backend, DynamoDB locking | [`lab-06`](../../tree/lab-06) |
-| 07 | Observability | OpenTelemetry, CloudWatch | [`lab-07`](../../tree/lab-07) |
-| 08 | Monitoring & alerting | CloudWatch dashboards and alarms, SNS | [`lab-08`](../../tree/lab-08) |
-| 09 | Event-driven architecture | EventBridge custom bus, SQS consumers | [`lab-09`](../../tree/lab-09) |
-| 10 | CQRS & Saga with compensation | DynamoDB read model, orchestrated Saga | [`lab-10`](../../tree/lab-10) |
-| 11 | Enterprise integration | API Gateway, Lambda, SQS | [`lab-11`](../../tree/lab-11) |
-| 12 | Fan-out | SNS → SQS billing / shipping | [`lab-12`](../../tree/lab-12) |
-| 13 | Kubernetes & streaming | kind, Kafka producer/consumer, Service Discovery | [`lab-13`](../../tree/lab-13) |
-| 14 | Production-ready containers | Multi-stage Docker, probes, Ingress NGINX | [`lab-14`](../../tree/lab-14) |
-| 15 | Resilience & autoscaling | HPA, PodDisruptionBudget, rolling update | [`lab-15`](../../tree/lab-15) |
-| 16 | Packaging | Helm chart (dev / prod), upgrade and rollback | [`lab-16`](../../tree/lab-16) |
-| 17 | FinOps: Inform & Optimize | Python (pandas) cost analysis, AWS Budgets | [`lab-17`](../../tree/lab-17) |
-| 18 | FinOps: Operate | Scheduled Lambda tag-compliance checker, EventBridge, SNS, Cost Anomaly Detection, Well-Architected review | [`lab-18`](../../tree/lab-18) |
-| 19–20 | Application modernization | Strangler Fig pattern | [enterprise-app-modernization](https://github.com/JhonnatanPenate/enterprise-app-modernization) |
+| # | Topic | Key services & tools | Code | Docs |
+|---|---|---|---|---|
+| 01 | DevSecOps pipeline design | CodeQL, Trivy, Gitleaks, SBOM (analysis) | Conceptual | [lab-01](docs/labs/lab-01.md) |
+| 02 | Code quality and quality gates | SonarQube (analysis) | Conceptual | [lab-02](docs/labs/lab-02.md) |
+| 03 | Continuous deployment with IaC | Terraform, S3, GitHub Actions | [`lab-03`](../../tree/lab-03) | [lab-03](docs/labs/lab-03.md) |
+| 04 | End-to-end DevSecOps pipeline | CodeQL, Gitleaks, Trivy, SBOM, SonarCloud | [`lab-04`](../../tree/lab-04) | [lab-04](docs/labs/lab-04.md) |
+| 05 | Modular Terraform | Reusable `static-site` module | [`lab-05`](../../tree/lab-05) | [lab-05](docs/labs/lab-05.md) |
+| 06 | Multi-environment + remote state | Workspaces, S3 backend, DynamoDB locking | [`lab-06`](../../tree/lab-06) | [lab-06](docs/labs/lab-06.md) |
+| 07 | Observability | OpenTelemetry, CloudWatch | [`lab-07`](../../tree/lab-07) | [lab-07](docs/labs/lab-07.md) |
+| 08 | Monitoring & alerting | CloudWatch dashboards and alarms, SNS | [`lab-08`](../../tree/lab-08) | [lab-08](docs/labs/lab-08.md) |
+| 09 | Event-driven architecture | EventBridge, SQS consumers | [`lab-09`](../../tree/lab-09) | [lab-09](docs/labs/lab-09.md) |
+| 10 | CQRS & Saga with compensation | DynamoDB read model, orchestrated Saga | [`lab-10`](../../tree/lab-10) | [lab-10](docs/labs/lab-10.md) |
+| 11 | Enterprise integration | API Gateway, Lambda, SQS | [`lab-11`](../../tree/lab-11) | [lab-11](docs/labs/lab-11.md) |
+| 12 | Messaging fan-out | SNS → SQS billing / shipping | [`lab-12`](../../tree/lab-12) | [lab-12](docs/labs/lab-12.md) |
+| 13 | Event platform on Kubernetes | kind, Kafka, Service discovery | [`lab-13`](../../tree/lab-13) | [lab-13](docs/labs/lab-13.md) |
+| 14 | Optimized containers | Multi-stage Docker, probes, Ingress NGINX | [`lab-14`](../../tree/lab-14) | [lab-14](docs/labs/lab-14.md) |
+| 15 | Autoscaling & resilience | HPA, self-healing, rolling update, PDB | [`lab-15`](../../tree/lab-15) | [lab-15](docs/labs/lab-15.md) |
+| 16 | Packaging | Helm chart (dev / prod), upgrade and rollback | [`lab-16`](../../tree/lab-16) | [lab-16](docs/labs/lab-16.md) |
+| 17 | FinOps: Inform & Optimize | Python (pandas) cost analysis, AWS Budgets | [`lab-17`](../../tree/lab-17) | [lab-17](docs/labs/lab-17.md) |
+| 18 | FinOps: Operate | Tag-compliance Lambda, EventBridge, SNS, Anomaly Detection, Well-Architected | [`lab-18`](../../tree/lab-18) | [lab-18](docs/labs/lab-18.md) |
+| 19–20 | Application modernization | Strangler Fig, OpenTelemetry | [enterprise-app-modernization](https://github.com/JhonnatanPenate/enterprise-app-modernization) | |
+
+Labs 1 and 2 were design and analysis labs; their results are implemented from Lab 3 onwards.
 
 ## Technical highlights
 
@@ -120,7 +103,7 @@ flowchart LR
 
 ## Browse by lab
 
-Each tag points to the last commit of its lab.
+Each tag (`lab-03` … `lab-18`) points to the last commit of its lab.
 
 ```bash
 git clone https://github.com/JhonnatanPenate/cloud-devsecops-labs.git
@@ -130,6 +113,24 @@ git checkout main       # back to the latest state
 ```
 
 On GitHub: **Tags → `lab-XX` → Browse files**.
+
+## Repository layout
+
+| Path | Contents | Labs |
+|---|---|---|
+| `infra/` | S3 static website (first Terraform stack) | 3–4 |
+| `src/`, `tests/` | Checkout app and Jest tests | 4, 7 |
+| `modules/static-site/`, `environments/dev/` | Reusable module and its environments | 5–6 |
+| `backend-bootstrap/` | Remote state bucket + DynamoDB lock table | 6 |
+| `observability/` | CloudWatch log group, alarms, dashboard, SNS | 7–8 |
+| `events/` | EventBridge bus, SQS queues, DynamoDB read model | 9–10 |
+| `api-gateway/`, `lambda/` | HTTP API, Lambdas, SQS, SNS fan-out | 11–12 |
+| `k8s/`, `k8s-app/`, `status-api/` | kind, Kafka, status API, probes, Ingress, HPA, PDB | 13–15 |
+| `status-api-chart/` | Helm chart (dev / prod) | 16 |
+| `finops/`, `finops-budget/` | Cost analysis and AWS Budgets | 17 |
+| `governance/`, `lambda-governance/` | Scheduled tag-compliance Lambda | 18 |
+| `scripts/` | Publishers, consumers, Saga demo, tracing and test helpers | 7–12 |
+| `docs/` | Lab records, architecture diagrams, reference pipeline | all |
 
 ## Getting started
 
@@ -154,7 +155,7 @@ npm install
 npm test
 ```
 
-Scripts that reference AWS resources use the placeholder `AWS_ACCOUNT_ID`; replace it with your own account ID.
+Scripts read AWS resource identifiers from environment variables (`INVENTORY_QUEUE_URL`, `NOTIFICATIONS_QUEUE_URL`, `ORDERS_QUEUE_URL`, `ORDER_EVENTS_TOPIC_ARN`), taken from `terraform output`. The reference CI/CD workflow is kept in [`docs/pipeline/deploy.yml`](docs/pipeline/deploy.yml).
 
 ## Cost & cleanup
 
@@ -162,7 +163,7 @@ Every AWS lab ends with `terraform destroy`, and the FinOps labs keep a monthly 
 
 ## Practices applied
 
-- Least-privilege IAM roles for every Lambda function
+- Scoped IAM roles for Lambda (for example, the tag checker can only list buckets, read their tags and publish to a single SNS topic)
 - No secrets or Terraform state in version control
 - Mandatory `CostCenter` / `Environment` tagging
 - Observability by default: traces, metrics, dashboards and alarms
