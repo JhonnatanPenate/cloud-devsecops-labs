@@ -1,343 +1,187 @@
-# event-driven-lab
+# cloud-devsecops-labs
 
-Proyecto de los laboratorios 9 a 16 de Desarrollo en la Nube II: arquitecturas
-basadas en eventos y contenedores avanzados.
+> 18 progressive hands-on labs on AWS: a secure CI/CD pipeline, Infrastructure as Code, event-driven architecture, Kubernetes and FinOps, built on one evolving codebase.
 
-| Lab | Tema | Carpetas / archivos principales |
-|-----|------|---------------------------------|
-| 9 | EventBridge + colas SQS con consumidores independientes | `events/`, `publish-order-event.js`, `poll-*.js` |
-| 10 | CQRS (modelo de lectura DynamoDB) y Saga con compensación | `events/read-model.tf`, `update-read-model.js`, `query-orders.js`, `saga-orchestrator.js` |
-| 11 | API Gateway + Lambda + SQS (integración empresarial) | `api-gateway/main.tf`, `lambda/` |
-| 12 | Fan-out con SNS hacia colas billing y shipping | `api-gateway/fanout.tf`, `sns-fanout-consumer.js` |
-| 13 | Kubernetes local con kind: Kafka, Deployments, Services, Job y Service Discovery | `k8s/`, `k8s-app/` |
-| 14 | Imagen multi-stage, probes, réplicas, Ingress (ingress-nginx) y escalado | `status-api/`, `k8s/status-api-*.yaml` |
-| 15 | Auto-escalado (HPA), self-healing, rolling update y PodDisruptionBudget | `k8s/status-api-hpa.yaml`, `k8s/status-api-pdb.yaml` |
-| 16 | Chart de Helm parametrizado: releases dev y prod, upgrade y rollback | `status-api-chart/` |
+![AWS](https://img.shields.io/badge/AWS-232F3E?logo=amazonwebservices&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?logo=terraform&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm-0F1689?logo=helm&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Estado actual
+---
 
-Copia del código versionado de `devsecops-pipeline-lab`. La Parte A está preparada
-en `events/`, siguiendo la guía. El estudiante confirmó el despliegue de 12 recursos;
-sus outputs están guardados en `docs/lab9-outputs.md`. Los tres scripts están preparados
-con las URLs reales. El estudiante confirmó el funcionamiento del flujo del Lab 9
-y la preparación de sus evidencias.
+## Table of contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Labs](#labs)
+- [Technical highlights](#technical-highlights)
+- [Tech stack](#tech-stack)
+- [Browse by lab](#browse-by-lab)
+- [Getting started](#getting-started)
+- [Cost & cleanup](#cost--cleanup)
+- [Practices applied](#practices-applied)
+- [Related project](#related-project)
+- [Team & author](#team--author)
+- [License](#license)
 
-El pipeline anterior se conserva en `docs/previous-labs/deploy.yml.disabled` como
-referencia. No se ejecuta automáticamente en este repositorio. El código previo
-de SonarQube, OpenTelemetry e infraestructura se conserva como base histórica.
+---
 
-## Requisitos y entregables de la guía
+## Overview
 
-- Haber completado los laboratorios 3 a 8 y disponer de Node.js, npm y acceso a AWS.
-- Crear `events/main.tf`, `events/variables.tf` y `events/outputs.tf` con un bus de
-  EventBridge, dos colas SQS y dos reglas independientes para `OrderCreated`.
-- Gestionar los permisos nuevos mediante Terraform y esperar su propagación.
-- Crear `publish-order-event.js`, `poll-notifications.js` y `poll-inventory.js`.
-- Capturar la terminal con la publicación y el procesamiento por ambos
-  consumidores de la misma orden.
-- Capturar EventBridge con las dos reglas activas en `devsecops-lab-orders-bus`.
-- Conservar el bus y las colas para el Laboratorio 10; destruirlos al terminar ese laboratorio.
+This repository holds the full lab sequence of **Cloud Development II** (ESEN, 2026). The labs are cumulative: each one extends the same checkout application and its infrastructure instead of starting from scratch.
 
-La guía extiende el repositorio anterior y no exige renombrarlo ni crear otro.
-Esta copia separada se preparó por decisión del estudiante. SonarQube y
-OpenTelemetry no aparecen en la lista de entregables del Laboratorio 9.
+| Area | Labs | What it covers |
+|---|---|---|
+| **DevSecOps** | 1–4 | CI/CD with security and quality gates |
+| **Infrastructure as Code** | 5–8 | Modular, multi-environment Terraform, remote state, observability |
+| **Event-driven architecture** | 9–12 | EventBridge, SQS, SNS, DynamoDB, CQRS, Saga, API Gateway + Lambda |
+| **Containers & Kubernetes** | 13–16 | kind, Kafka, probes, Ingress, autoscaling, Helm |
+| **FinOps** | 17–18 | Cost analysis, budgets, automated tag governance |
 
-## Trabajo por pasos
+The complete commit history is preserved with its original dates, and **every lab has a Git tag** with the exact state of the code at that point.
 
-1. Preparar esta copia y publicarla en GitHub.
-2. Crear y revisar la infraestructura de `events/`.
-3. Desplegarla y registrar los outputs reales.
-4. Crear el publicador y los dos consumidores.
-5. Ejecutar el flujo y obtener las dos capturas solicitadas.
+## Architecture
 
-El estudiante confirmó los pasos 1 a 5 del Lab 9.
-Las evidencias deben corresponder a ejecuciones reales.
+```mermaid
+flowchart LR
+    Dev([Developer]) -->|push| GH[GitHub Actions<br/>CodeQL · Gitleaks · Trivy<br/>SBOM · SonarQube]
+    GH -->|terraform apply| S3[S3 static site]
 
-## Ejecutar el flujo en PowerShell
+    Client([Client]) --> APIGW[API Gateway]
+    APIGW --> L[Lambda]
+    L --> SQS1[SQS]
+    App[Checkout app] -->|events| EB[EventBridge]
+    EB --> SQSi[SQS inventory]
+    EB --> SQSn[SQS notifications]
+    SQSi --> DDB[(DynamoDB<br/>CQRS read model)]
+    App --> SNS[SNS fan-out]
+    SNS --> Bill[SQS billing]
+    SNS --> Ship[SQS shipping]
 
-Desde la raíz de `event-driven-lab`, con las credenciales de AWS disponibles:
+    App -. OpenTelemetry .-> CW[CloudWatch<br/>dashboards · alarms]
+    CW --> Alert[SNS alerts]
 
-```powershell
-npm install
-node publish-order-event.js
-Start-Sleep -Seconds 5
-node poll-notifications.js
-node poll-inventory.js
+    subgraph k8s [Kubernetes · kind]
+        Kafka[Kafka] --> Cons[Consumer]
+        API[status-api<br/>HPA · PDB · Ingress]
+    end
+
+    Sched[EventBridge<br/>daily schedule] --> Tag[Lambda<br/>tag compliance]
+    Tag --> SNSf[SNS report]
+    Budget[AWS Budgets] --> SNSf
 ```
 
-Ejecutar los comandos uno por uno y detenerse si aparece un error. Capturar la
-terminal cuando ambos consumidores hayan procesado la misma orden publicada.
-Si una cola no tiene mensajes, esperar y volver a ejecutar ese consumidor.
-Para repetir una prueba ya consumida, publicar una orden nueva y ejecutar ambos consumidores.
+## Labs
 
-Los scripts siguen la guía y simulan el correo y la reserva de inventario mediante
-mensajes en consola. El publicador además comprueba `FailedEntryCount` para detectar
-errores por evento devueltos por EventBridge.
+| # | Topic | Key services & tools | Tag |
+|---|---|---|---|
+| 01 | Repository setup and base checkout app | Node.js, Jest | [`lab-01`](../../tree/lab-01) |
+| 02 | Infrastructure as Code | Terraform, S3 static website | [`lab-02`](../../tree/lab-02) |
+| 03 | CI/CD deployment pipeline | GitHub Actions, Terraform | [`lab-03`](../../tree/lab-03) |
+| 04 | Security & quality gates | CodeQL, Gitleaks, Trivy, SBOM, SonarQube | [`lab-04`](../../tree/lab-04) |
+| 05 | Modular Terraform | Terraform modules (`static-site`) | [`lab-05`](../../tree/lab-05) |
+| 06 | Multi-environment + remote state | Workspaces, S3 backend, DynamoDB locking | [`lab-06`](../../tree/lab-06) |
+| 07 | Observability | OpenTelemetry, CloudWatch | [`lab-07`](../../tree/lab-07) |
+| 08 | Monitoring & alerting | CloudWatch dashboards and alarms, SNS | [`lab-08`](../../tree/lab-08) |
+| 09 | Event-driven architecture | EventBridge custom bus, SQS consumers | [`lab-09`](../../tree/lab-09) |
+| 10 | CQRS & Saga with compensation | DynamoDB read model, orchestrated Saga | [`lab-10`](../../tree/lab-10) |
+| 11 | Enterprise integration | API Gateway, Lambda, SQS | [`lab-11`](../../tree/lab-11) |
+| 12 | Fan-out | SNS → SQS billing / shipping | [`lab-12`](../../tree/lab-12) |
+| 13 | Kubernetes & streaming | kind, Kafka producer/consumer, Service Discovery | [`lab-13`](../../tree/lab-13) |
+| 14 | Production-ready containers | Multi-stage Docker, probes, Ingress NGINX | [`lab-14`](../../tree/lab-14) |
+| 15 | Resilience & autoscaling | HPA, PodDisruptionBudget, rolling update | [`lab-15`](../../tree/lab-15) |
+| 16 | Packaging | Helm chart (dev / prod), upgrade and rollback | [`lab-16`](../../tree/lab-16) |
+| 17 | FinOps: Inform & Optimize | Python (pandas) cost analysis, AWS Budgets | [`lab-17`](../../tree/lab-17) |
+| 18 | FinOps: Operate | Scheduled Lambda tag-compliance checker, EventBridge, SNS, Cost Anomaly Detection, Well-Architected review | [`lab-18`](../../tree/lab-18) |
+| 19–20 | Application modernization | Strangler Fig pattern | [enterprise-app-modernization](https://github.com/JhonnatanPenate/enterprise-app-modernization) |
 
-## Cuándo tomar las capturas
+## Technical highlights
 
-- Ahora, en el editor: una captura de la carpeta `events/` y su código es opcional;
-  no sustituye las dos capturas obligatorias.
-- Después del despliegue: guardar los outputs de Terraform. Una captura de
-  `Apply complete!` y los outputs es útil como respaldo, pero no es un entregable exigido.
-- Después de ejecutar el publicador y ambos consumidores: tomar la captura
-  obligatoria de terminal con el mismo `orderId` visible en los tres resultados.
-- Después del despliegue, en AWS, región `us-east-1`: abrir EventBridge → Event buses
-  → `devsecops-lab-orders-bus` → Rules y tomar la captura obligatoria de ambas reglas
-  con estado `Enabled`.
+- **Security shift-left:** the pipeline runs static analysis (CodeQL), secret detection (Gitleaks), vulnerability scanning (Trivy), SBOM generation and a SonarQube quality gate before any deployment. A test commit with a fake secret was blocked on purpose (Lab 4).
+- **Production-style Terraform:** reusable modules, dev/prod workspaces and remote state in S3 with DynamoDB locking.
+- **Distributed transactions:** a Saga with compensating actions and a CQRS read model on DynamoDB, connected through EventBridge and SQS.
+- **Resilient Kubernetes workloads:** liveness/readiness probes, Ingress, HPA, PodDisruptionBudgets and Helm releases per environment.
+- **Automated cost governance:** a daily Lambda audits S3 buckets for the `CostCenter` and `Environment` tags and reports through SNS, alongside AWS Budgets and Cost Anomaly Detection.
 
-No destruir el bus ni las colas al terminar el Lab 9; se reutilizan en el Lab 10.
+## Tech stack
 
-## Laboratorio 10 — Partes A y B
+| Category | Tools |
+|---|---|
+| Cloud | AWS: S3, Lambda, API Gateway, EventBridge, SQS, SNS, DynamoDB, CloudWatch, IAM, Budgets, Cost Anomaly Detection |
+| IaC | Terraform |
+| CI/CD & security | GitHub Actions, CodeQL, Gitleaks, Trivy, SonarQube |
+| Containers | Docker, Kubernetes (kind), Helm, Kafka |
+| Observability | OpenTelemetry, CloudWatch |
+| Languages | Node.js (AWS SDK v3, Jest), Python (pandas) |
 
-`events/read-model.tf` agrega la tabla `devsecops-lab-orders-read-model`, el permiso
-de DynamoDB y la espera de propagación. El estudiante confirmó el despliegue y
-aportó una captura de la tabla activa con clave de partición `orderId` de tipo String.
+## Browse by lab
 
-`update-read-model.js` consume la cola de inventario, guarda cada orden en DynamoDB
-con estado `received` y después elimina el mensaje de la cola.
-`query-orders.js` consulta la tabla siguiendo el ejemplo de la guía.
+Each tag points to the last commit of its lab.
 
-Desde la raíz del repositorio, ejecutar uno por uno:
-
-```powershell
-node publish-order-event.js
-Start-Sleep -Seconds 5
-node update-read-model.js
-node query-orders.js
+```bash
+git clone https://github.com/JhonnatanPenate/cloud-devsecops-labs.git
+cd cloud-devsecops-labs
+git checkout lab-10     # code exactly as it was at the end of Lab 10
+git checkout main       # back to the latest state
 ```
 
-Para esta prueba no ejecutar `poll-inventory.js`: compite por la misma cola y
-podría consumir el mensaje antes que el modelo de lectura. Usar una orden nueva.
-Si no llegan mensajes, esperar y repetir `update-read-model.js`. Si la escritura
-terminó pero la consulta aún no muestra la orden, repetir `query-orders.js` tras
-unos segundos.
+On GitHub: **Tags → `lab-XX` → Browse files**.
 
-Captura obligatoria: publicación, escritura y consulta con el mismo `orderId`
-visible. Las capturas del código son respaldo adicional al repositorio.
-La evidencia de CQRS está pendiente de revisión. La limpieza final (Parte D) está pendiente.
+## Getting started
 
-## Laboratorio 10 — Parte C: Saga
+### Prerequisites
+- An AWS account with an IAM user configured through the AWS CLI. Credentials are **never** stored in this repository.
+- Terraform 1.5+
+- Node.js 18+ and npm
+- Docker, kind, kubectl and Helm (Labs 13–16)
+- Python 3 with pandas (Lab 17)
 
-`saga-orchestrator.js` sigue la secuencia de la guía: reservar inventario, cobrar
-y confirmar la orden. Si el pago falla después de reservar, libera la reserva.
-Los servicios están simulados mediante mensajes de consola; esta demo no cobra
-dinero ni modifica inventario real, y no utiliza las colas ni DynamoDB.
-
-`run-saga-demo.js` reutiliza `tracing.js` y ejecuta cinco intentos con resultados
-aleatorios. Los spans de OpenTelemetry se imprimen en consola al exportarse.
-Se usa `finally` para cerrar el span y el SDK incluso ante errores inesperados.
-
-```powershell
-node run-saga-demo.js
-```
-
-Captura obligatoria: una ejecución que muestre al menos `SAGA COMPLETA` y
-`SAGA COMPENSADA`. Para mostrar la compensación claramente, incluir también
-el rechazo del pago y `[Compensación] Liberando reserva ...`. Si falta alguno
-de los caminos, ejecutar la demo de nuevo. Un fallo por falta de stock no deja
-una reserva que liberar, aunque el ejemplo de la guía también lo etiqueta
-como `SAGA COMPENSADA`.
-
-Guardar las evidencias de CQRS y Saga antes de realizar la limpieza final.
-
-## Laboratorio 11 — API Gateway + Lambda + SQS
-
-`api-gateway/main.tf` crea en `us-east-1`:
-
-- La cola `devsecops-lab-orders-api-queue`.
-- El rol `devsecops-lab-lambda-exec-role`, con logs básicos y permiso `sqs:SendMessage` solo sobre esa cola.
-- Las funciones Lambda `devsecops-lab-create-order` y `devsecops-lab-health` (Node.js 20).
-- Una HTTP API (`devsecops-lab-orders-api`) con las rutas `POST /orders` y `GET /health`.
-
-`lambda/create-order.js` valida que el cuerpo traiga `productId` y `amount`, envía la orden
-a SQS y responde `201`. Si el JSON es inválido o faltan campos, responde `400`.
-
-```powershell
-npm install
-cd api-gateway
+### Typical workflow for an AWS lab
+```bash
 terraform init
-terraform apply
-$api = terraform output -raw api_url
-Invoke-RestMethod "$($api)health"
-Invoke-RestMethod -Method Post -Uri "$($api)orders" -ContentType "application/json" -Body '{"productId":"P-001","amount":25}'
-cd ..
+terraform apply      # deploy
+# run the lab scripts / tests
+terraform destroy    # always clean up
 ```
 
-## Laboratorio 12 — Fan-out con SNS
-
-`api-gateway/fanout.tf` agrega el tópico `devsecops-lab-order-events-topic` y las colas
-`devsecops-lab-billing-queue` y `devsecops-lab-shipping-queue`, ambas suscritas al tópico.
-Las políticas de cada cola solo aceptan mensajes enviados por SNS desde ese tópico.
-
-`sns-fanout-consumer.js` lee los pedidos que dejó la API en `devsecops-lab-orders-api-queue`,
-los republica en SNS y los elimina de la cola. SNS entrega una copia a cada cola suscrita.
-
-```powershell
-node sns-fanout-consumer.js
+Run the unit tests:
+```bash
+npm install
+npm test
 ```
 
-Verificación: en la consola de SQS, las colas billing y shipping reciben el mismo pedido.
-Al terminar, si los recursos ya no se usan: `terraform destroy` dentro de `api-gateway/`.
+Scripts that reference AWS resources use the placeholder `AWS_ACCOUNT_ID`; replace it with your own account ID.
 
-## Laboratorio 13 — Kubernetes local con kind
+## Cost & cleanup
 
-Corre 100% en local (costo $0), con kind v0.33.0 (Kubernetes 1.37) sobre Docker Desktop.
-Continúa en el Laboratorio 14.
+Every AWS lab ends with `terraform destroy`, and the FinOps labs keep a monthly budget with alerts. The total accumulated cost of the course stayed at approximately **$0**.
 
-- `k8s/kind-cluster-config.yaml`: clúster `devsecops-lab` de un nodo, con la etiqueta
-  `ingress-ready=true` y los puertos 80/443 mapeados para el Ingress del Lab 14.
-- `k8s/kafka-deployment.yaml`: Deployment de Kafka (`bitnamilegacy/kafka:3.7`, modo KRaft)
-  y su Service `kafka`. Kafka se anuncia como `kafka:9092`, no como `localhost`.
-- `k8s-app/`: productor y consumidor de Kafka (`kafkajs`) que se conectan a `kafka:9092`.
-  El `Dockerfile` usa `node:20-alpine`, copia `package.json` antes del código para
-  aprovechar el cache de capas y ejecuta la app con un usuario sin privilegios.
-- `k8s/consumer-deployment.yaml`: Deployment `billing-consumer`, que escucha `order-events` sin detenerse.
-- `k8s/producer-job.yaml`: Job `order-producer`, que publica una orden y termina.
+## Practices applied
 
-```powershell
-kind create cluster --config k8s/kind-cluster-config.yaml --name devsecops-lab
-kubectl get nodes
-kubectl apply -f k8s/kafka-deployment.yaml
-kubectl get pods --watch
-cd k8s-app
-docker build -t devsecops-lab/k8s-app:1.0 .
-cd ..
-kind load docker-image devsecops-lab/k8s-app:1.0 --name devsecops-lab
-kubectl apply -f k8s/consumer-deployment.yaml
-kubectl apply -f k8s/producer-job.yaml
-kubectl logs -l app=billing-consumer --tail=20
-kubectl get pods
-```
+- Least-privilege IAM roles for every Lambda function
+- No secrets or Terraform state in version control
+- Mandatory `CostCenter` / `Environment` tagging
+- Observability by default: traces, metrics, dashboards and alarms
+- One tag per lab, Conventional Commits and preserved history
 
-Resultado obtenido: `kafka` y `billing-consumer` en `Running`, `order-producer` en `Completed`,
-y el consumidor muestra `[billing-service] Orden recibida desde la partición 0: KAFKA-...`.
-La conexión se hizo solo por el nombre del Service (Service Discovery), sin IPs ni `localhost`.
+## Related project
 
-El clúster se reutilizó en el Laboratorio 14.
+**[enterprise-app-modernization](https://github.com/JhonnatanPenate/enterprise-app-modernization)** (Labs 19–20): incremental migration of a checkout monolith to microservices with the Strangler Fig pattern.
 
-## Laboratorio 14 — Imagen optimizada, probes e Ingress
+## Team & author
 
-Continúa sobre el clúster `devsecops-lab` del Laboratorio 13.
+Built for **Cloud Development II**, ESEN (El Salvador), 2026.
 
-- `status-api/`: API Express con `GET /health` y `GET /`; la raíz devuelve el `hostname`
-  del Pod y un contador de solicitudes propio de cada réplica.
-- `status-api/Dockerfile`: construcción multi-stage. La etapa `deps` instala dependencias y
-  la imagen final solo copia `node_modules`, `package.json` y `server.js`; corre como `appuser`.
-- `k8s/status-api-deployment.yaml`: Deployment con 2 réplicas, `requests`/`limits` de CPU y
-  memoria, `readinessProbe` y `livenessProbe` sobre `/health`, y Service `status-api` (80 → 3000).
-- `k8s/status-api-ingress.yaml`: Ingress de clase `nginx` que envía `/` al Service `status-api`.
+**Team:** Susana Beltrán · Debbie Cruz · Andre Iraheta · Tiffany Meléndez · Dana Ochoa · Jhonnatan Peñate
 
-En PowerShell se usa `curl.exe`, porque `curl` es un alias de `Invoke-WebRequest`.
+This repository is my consolidated implementation: full commit history, one tag per lab, documentation and architecture diagrams.
 
-```powershell
-cd status-api
-docker build -t devsecops-lab/status-api:1.0 .
-cd ..
-kind load docker-image devsecops-lab/status-api:1.0 --name devsecops-lab
-kubectl apply -f k8s/status-api-deployment.yaml
-kubectl get pods -l app=status-api
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
-kubectl apply -f k8s/status-api-ingress.yaml
-curl.exe http://localhost/health
-curl.exe http://localhost/
-kubectl scale deployment status-api --replicas=4
-kubectl get pods
-```
+**Maintainer:** Jhonnatan Peñate Serrano · [GitHub](https://github.com/JhonnatanPenate) · [LinkedIn](https://www.linkedin.com/in/jhonnatan-penate)
 
-Resultado obtenido: las réplicas pasan de `0/1` a `1/1` cuando la readinessProbe responde;
-las respuestas de `http://localhost/` alternan entre hostnames distintos (balanceo del Service)
-y, tras escalar a 4 réplicas, aparecen nuevos hostnames sin modificar ningún YAML.
+## License
 
-Limpieza final de los Labs 13 y 14:
-
-```powershell
-kind delete cluster --name devsecops-lab
-docker rmi devsecops-lab/k8s-app:1.0 devsecops-lab/status-api:1.0
-```
-
-## Laboratorio 15 — Auto-escalado y resiliencia
-
-Continúa sobre `status-api` en el clúster `devsecops-lab` (se recreó con la Parte B del Lab 13 y
-las Partes A–D del Lab 14). Continúa en el Laboratorio 16 (chart de Helm).
-
-- `k8s/metrics-server-kind-patch.json`: agrega `--kubelet-insecure-tls` a metrics-server, necesario
-  en kind por los certificados autofirmados. Se aplica con `--patch-file` para evitar problemas de
-  comillas en PowerShell.
-- `k8s/status-api-hpa.yaml`: HPA de 2 a 6 réplicas con objetivo de 50 % de CPU promedio.
-- `k8s/status-api-pdb.yaml`: PodDisruptionBudget con `minAvailable: 1`.
-- `status-api/server.js`: el mensaje cambia a `DevSecOps Lab - Status API v2` para la imagen `2.0`.
-
-```powershell
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-kubectl patch deployment metrics-server -n kube-system --type=json --patch-file k8s/metrics-server-kind-patch.json
-kubectl top pods
-kubectl apply -f k8s/status-api-hpa.yaml
-kubectl run load-generator --image=busybox:1.36 --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://status-api/ > /dev/null; done"
-kubectl get hpa status-api-hpa --watch
-kubectl delete pod load-generator
-kubectl delete pod NOMBRE_DEL_POD
-cd status-api
-docker build -t devsecops-lab/status-api:2.0 .
-cd ..
-kind load docker-image devsecops-lab/status-api:2.0 --name devsecops-lab
-1..90 | ForEach-Object { curl.exe -sS http://localhost/; ""; Start-Sleep -Seconds 1 }   # en otra terminal
-kubectl set image deployment/status-api status-api=devsecops-lab/status-api:2.0
-kubectl rollout status deployment/status-api
-kubectl apply -f k8s/status-api-pdb.yaml
-kubectl get pdb
-```
-
-Resultados obtenidos:
-
-- Con carga, la CPU llegó a 171–279 % del objetivo y el HPA subió las réplicas de 2 a 4 y luego a 6.
-- Al borrar un Pod, el Deployment creó uno nuevo automáticamente.
-- Durante el rolling update las respuestas pasaron de `Status API` a `Status API v2` sin errores de conexión.
-- `status-api-pdb` quedó con `MIN AVAILABLE 1` y `ALLOWED DISRUPTIONS 1`.
-
-El HPA, el PDB y `status-api` se empaquetaron después en el chart de Helm del Laboratorio 16.
-
-## Laboratorio 16 — Chart de Helm (dev y prod)
-
-Los manifiestos de `status-api` de los Labs 14–15 (Deployment, Service, HPA, PDB e Ingress) se
-empaquetaron en `status-api-chart/`, con Helm v4.
-
-- `Chart.yaml`: chart `status-api` versión `1.0.0`, `appVersion` `2.0`.
-- `values.yaml`: valores por defecto (ambiente dev): 2 réplicas, imagen `devsecops-lab/status-api:2.0`,
-  HPA de 2 a 6, PDB con `minAvailable: 1` e Ingress `nginx` habilitado.
-- `values-prod.yaml`: solo las diferencias de prod: 3 réplicas, más CPU y memoria, HPA de 3 a 10
-  e Ingress deshabilitado.
-- `templates/`: `deployment.yaml`, `service.yaml`, `hpa.yaml`, `pdb.yaml` e `ingress.yaml`. Los nombres
-  usan `{{ .Release.Name }}`, así que cada release crea recursos propios (`dev-status-api`,
-  `prod-status-api`). HPA, PDB e Ingress se pueden desactivar desde los values.
-
-```powershell
-kubectl delete -f k8s/status-api-deployment.yaml
-kubectl delete -f k8s/status-api-hpa.yaml
-kubectl delete -f k8s/status-api-pdb.yaml
-kubectl delete -f k8s/status-api-ingress.yaml
-helm template dev status-api-chart/
-helm lint status-api-chart/
-helm install dev status-api-chart/
-helm install prod status-api-chart/ -f status-api-chart/values-prod.yaml
-helm list
-kubectl get pods
-helm upgrade dev status-api-chart/ --set replicaCount=3
-helm history dev
-helm rollback dev 1
-helm history dev
-```
-
-Resultados obtenidos: `helm list` muestra `dev` y `prod` en `deployed` con el chart `status-api-1.0.0`;
-dev corre 2 réplicas y prod 3 con el mismo chart; el upgrade llevó dev a 3 réplicas y el rollback
-lo devolvió a 2.
-
-## Limpieza final (Labs 13–16)
-
-```powershell
-helm uninstall dev
-helm uninstall prod
-kind delete cluster --name devsecops-lab
-docker rmi devsecops-lab/k8s-app:1.0 devsecops-lab/status-api:1.0 devsecops-lab/status-api:2.0
-```
+Distributed under the MIT License. See [`LICENSE`](LICENSE).
