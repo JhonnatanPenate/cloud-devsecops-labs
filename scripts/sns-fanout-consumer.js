@@ -2,8 +2,11 @@ const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 
 const REGION = 'us-east-1';
-const QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/AWS_ACCOUNT_ID/devsecops-lab-orders-api-queue';
-const TOPIC_ARN = 'arn:aws:sns:us-east-1:AWS_ACCOUNT_ID:devsecops-lab-order-events-topic';
+// URL de la cola: terraform output (ej. orders_queue_url)
+const QUEUE_URL = process.env.ORDERS_QUEUE_URL;
+if (!QUEUE_URL) throw new Error('Define la variable de entorno ORDERS_QUEUE_URL');
+const TOPIC_ARN = process.env.ORDER_EVENTS_TOPIC_ARN;
+if (!TOPIC_ARN) throw new Error('Define la variable de entorno ORDER_EVENTS_TOPIC_ARN');
 
 const sqsClient = new SQSClient({ region: REGION });
 const snsClient = new SNSClient({ region: REGION });

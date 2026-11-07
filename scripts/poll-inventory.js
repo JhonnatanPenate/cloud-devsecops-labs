@@ -1,7 +1,9 @@
 const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 
 const REGION = 'us-east-1';
-const QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/AWS_ACCOUNT_ID/devsecops-lab-inventory-queue';
+// URL de la cola: terraform output (ej. inventory_queue_url)
+const QUEUE_URL = process.env.INVENTORY_QUEUE_URL;
+if (!QUEUE_URL) throw new Error('Define la variable de entorno INVENTORY_QUEUE_URL');
 const client = new SQSClient({ region: REGION });
 
 async function main() {
