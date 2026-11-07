@@ -1,6 +1,6 @@
 const sdk = require('./tracing'); // Debe ser el PRIMER require de todo el archivo
 
-const { createOrder } = require('./src/orderService');
+const { createOrder } = require('../src/orderService');
 const { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
 const {
   CloudWatchLogsClient,
