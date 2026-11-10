@@ -1,42 +1,71 @@
 digraph G {
-  graph [rankdir=LR, bgcolor="white", pad=0.4, nodesep=0.35, ranksep=0.8, fontname="Helvetica", compound=true, labelloc="t", label=<<B><FONT POINT-SIZE="18">cloud-devsecops-labs · Architecture overview</FONT></B><BR/><FONT POINT-SIZE="11" COLOR="#505050">18 cumulative labs on AWS and Kubernetes · Cloud Development II, ESEN 2026</FONT>>];
-  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#438DD5", color="#3C7FC0", fontcolor="white", margin="0.18,0.08"];
-  edge  [fontname="Helvetica", fontsize=9, color="#707070", fontcolor="#505050", arrowsize=0.7];
+  graph [rankdir=LR, bgcolor="white", pad=0.5, nodesep=0.45, ranksep=0.9,
+         fontname="Helvetica", compound=true, newrank=true, splines=spline,
+         labelloc="t",
+         label=<<B><FONT POINT-SIZE="24">cloud-devsecops-labs · Architecture overview</FONT></B><BR/><FONT POINT-SIZE="14" COLOR="#505050">18 cumulative labs on AWS and Kubernetes · Cloud Development II, ESEN 2026</FONT><BR/> >];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=14,
+         fillcolor="#438DD5", color="#3C7FC0", fontcolor="white",
+         margin="0.22,0.12", width=3.3, height=0.9];
+  edge  [fontname="Helvetica", fontsize=11, color="#707070", fontcolor="#404040",
+         arrowsize=0.8, penwidth=1.3];
 
+  // People
+  dev  [label=<<B>Developer</B><BR/><FONT POINT-SIZE="11">[Person]</FONT>>, fillcolor="#08427B", color="#073B6F", width=1.8];
+  user [label=<<B>Client</B><BR/><FONT POINT-SIZE="11">[Person]</FONT>>,    fillcolor="#08427B", color="#073B6F", width=1.8];
 
-  dev [label=<<B>Developer</B><BR/><FONT POINT-SIZE="9">[Person]</FONT>>, fillcolor="#08427B", color="#073B6F"];
-  user [label=<<B>Client</B><BR/><FONT POINT-SIZE="9">[Person]</FONT>>, fillcolor="#08427B", color="#073B6F"];
-
-  subgraph cluster_ci { label=<<B>DevSecOps · Labs 1–4</B>>; style="dashed,rounded"; color="#888888"; fontsize=12;
-    gha [label=<<B>GitHub Actions</B><BR/><FONT POINT-SIZE="9">CodeQL · Gitleaks · Trivy<BR/>SBOM · SonarCloud gate</FONT>>];
-  }
-  subgraph cluster_iac { label=<<B>IaC &amp; Observability · Labs 5–8</B>>; style="dashed,rounded"; color="#888888"; fontsize=12;
-    tf [label=<<B>Terraform</B><BR/><FONT POINT-SIZE="9">modules · workspaces<BR/>S3 state + DynamoDB lock</FONT>>];
-    site [label=<<B>S3 static site</B><BR/><FONT POINT-SIZE="9">dev · staging · prod</FONT>>];
-    cw [label=<<B>CloudWatch</B><BR/><FONT POINT-SIZE="9">OpenTelemetry logs &amp; metrics<BR/>dashboard · alarms → SNS</FONT>>];
-  }
-  subgraph cluster_ev { label=<<B>Event-driven · Labs 9–12</B>>; style="dashed,rounded"; color="#888888"; fontsize=12;
-    api [label=<<B>API Gateway + Lambda</B><BR/><FONT POINT-SIZE="9">POST /orders · GET /health</FONT>>];
-    eb [label=<<B>EventBridge + SQS</B><BR/><FONT POINT-SIZE="9">independent consumers</FONT>>];
-    ddb [label=<<B>DynamoDB</B><BR/><FONT POINT-SIZE="9">CQRS read model · Saga</FONT>>];
-    sns [label=<<B>SNS fan-out</B><BR/><FONT POINT-SIZE="9">billing · shipping queues</FONT>>];
-  }
-  subgraph cluster_k8s { label=<<B>Kubernetes · Labs 13–16</B>>; style="dashed,rounded"; color="#888888"; fontsize=12;
-    k8s [label=<<B>kind cluster</B><BR/><FONT POINT-SIZE="9">Kafka · Ingress · HPA · PDB</FONT>>];
-    helm [label=<<B>Helm chart</B><BR/><FONT POINT-SIZE="9">dev / prod releases</FONT>>];
-  }
-  subgraph cluster_fin { label=<<B>FinOps · Labs 17–18</B>>; style="dashed,rounded"; color="#888888"; fontsize=12;
-    bud [label=<<B>Budgets &amp; cost analysis</B><BR/><FONT POINT-SIZE="9">Python · Cost Explorer</FONT>>];
-    gov [label=<<B>Tag-compliance Lambda</B><BR/><FONT POINT-SIZE="9">daily schedule · Anomaly Detection</FONT>>];
+  // 1. DevSecOps
+  subgraph cluster_ci { label=<<B>DevSecOps · Labs 1–4</B>>; style="dashed,rounded"; color="#888888"; fontsize=15; margin=16;
+    gha [label=<<B>GitHub Actions</B><BR/><FONT POINT-SIZE="11">CodeQL · Gitleaks · Trivy<BR/>SBOM · SonarCloud gate</FONT>>];
   }
 
-  dev -> gha [label="git push"];
-  gha -> tf [label="deploy if all gates pass"];
-  tf -> site; tf -> cw; tf -> eb; tf -> api; tf -> bud; tf -> gov;
-  user -> api [label="HTTPS"];
-  api -> sns [label="orders"];
-  eb -> ddb;
-  dev -> helm [label="helm install"];
+  // 2. IaC & Observability
+  subgraph cluster_iac { label=<<B>IaC &amp; Observability · Labs 5–8</B>>; style="dashed,rounded"; color="#888888"; fontsize=15; margin=16;
+    tf   [label=<<B>Terraform</B><BR/><FONT POINT-SIZE="11">modules · workspaces<BR/>S3 state + DynamoDB lock</FONT>>];
+    site [label=<<B>S3 static site</B><BR/><FONT POINT-SIZE="11">dev · staging · prod</FONT>>];
+    cw   [label=<<B>CloudWatch</B><BR/><FONT POINT-SIZE="11">OpenTelemetry logs &amp; metrics<BR/>dashboard · alarms → SNS</FONT>>];
+  }
+
+  // 3. Event-driven
+  subgraph cluster_ev { label=<<B>Event-driven · Labs 9–12</B>>; style="dashed,rounded"; color="#888888"; fontsize=15; margin=16;
+    api [label=<<B>API Gateway + Lambda</B><BR/><FONT POINT-SIZE="11">POST /orders · GET /health</FONT>>];
+    sns [label=<<B>SNS fan-out</B><BR/><FONT POINT-SIZE="11">billing · shipping queues</FONT>>];
+    eb  [label=<<B>EventBridge + SQS</B><BR/><FONT POINT-SIZE="11">independent consumers</FONT>>];
+    ddb [label=<<B>DynamoDB</B><BR/><FONT POINT-SIZE="11">CQRS read model · Saga</FONT>>];
+  }
+
+  // 4. Kubernetes
+  subgraph cluster_k8s { label=<<B>Kubernetes · Labs 13–16</B>>; style="dashed,rounded"; color="#888888"; fontsize=15; margin=16;
+    helm [label=<<B>Helm chart</B><BR/><FONT POINT-SIZE="11">dev / prod releases</FONT>>];
+    k8s  [label=<<B>kind cluster</B><BR/><FONT POINT-SIZE="11">Kafka · Ingress · HPA · PDB</FONT>>];
+  }
+
+  // 5. FinOps
+  subgraph cluster_fin { label=<<B>FinOps · Labs 17–18</B>>; style="dashed,rounded"; color="#888888"; fontsize=15; margin=16;
+    bud [label=<<B>Budgets &amp; cost analysis</B><BR/><FONT POINT-SIZE="11">Python · Cost Explorer</FONT>>];
+    gov [label=<<B>Tag-compliance Lambda</B><BR/><FONT POINT-SIZE="11">daily schedule · Anomaly Detection</FONT>>];
+  }
+
+  // Columns (left to right)
+  { rank=same; dev; user; }
+  { rank=same; gha; helm; }
+  { rank=same; tf; k8s; }
+  { rank=same; site; eb; bud; }
+  { rank=same; cw; ddb; gov; }
+  { rank=same; api; }
+  { rank=same; sns; }
+
+  // Flows
+  dev  -> gha  [label="git push"];
+  dev  -> helm [label="helm install"];
+  gha  -> tf   [label="deploy if all\ngates pass"];
   helm -> k8s;
-  gov -> site [label="audits tags", style=dashed];
+  tf   -> site;
+  site -> cw   [style=invis];
+  tf   -> cw   [constraint=false];
+  tf   -> eb   [lhead=cluster_ev,  xlabel="provisions"];
+  tf   -> bud  [lhead=cluster_fin, xlabel="provisions"];
+  bud  -> gov  [style=invis];
+  user -> api  [label="HTTPS"];
+  api  -> sns  [label="orders"];
+  eb   -> ddb;
 }
